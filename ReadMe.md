@@ -59,7 +59,7 @@ sudo apt install alsa-utils   # provides arecord
 
 ```bash
 # Clone the repository
-git clone https://github.com/YOUR_USERNAME/voice2keyboard.git
+git clone https://github.com/ingydotnet/voice2keyboard
 cd voice2keyboard
 
 # Install and start the service
