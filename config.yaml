@@ -21,10 +21,18 @@ pause_delay: 0.3
 # Voice commands for punctuation and formatting
 # Say the word on the left, get the symbol on the right
 voice_commands:
-  period: "."
-  kebab: ","
-  question: "?"
-  exclamation: "!"
+  full stop: "."
+  full step: "."
+  for stop: "."
+  for step: "."
+  falstaff: "."
+  tadpole: ","
+  karma: ","
+  see ally: "CLI"
+  i'm: "I'm"
+  i've: "I've"
+  question mark: "?"
+  exclamation mark: "!"
   colon: ":"
   semicolon: ";"
   hyphen: "-"

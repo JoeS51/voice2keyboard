@@ -50,6 +50,7 @@ PAUSE_DELAY = config.get("pause_delay", 0.3)
 # Global state
 is_recording = False
 has_typed_anything = False
+capitalize_next = True  # Capitalize first word and after sentence-ending punctuation
 lock = threading.Lock()
 kb_controller = Controller()
 model = None
@@ -76,17 +77,27 @@ def check_dependencies():
 def process_voice_commands(words):
     """Convert voice command words to punctuation and symbols"""
     result = []
-    for word in words:
-        if word in VOICE_COMMANDS:
-            result.append(VOICE_COMMANDS[word])
-        else:
-            result.append(word)
+    i = 0
+    while i < len(words):
+        matched = False
+        # Try matching longest phrases first (2 words, then 1 word)
+        for length in [2, 1]:
+            if i + length <= len(words):
+                phrase = " ".join(words[i:i+length])
+                if phrase in VOICE_COMMANDS:
+                    result.append(VOICE_COMMANDS[phrase])
+                    i += length
+                    matched = True
+                    break
+        if not matched:
+            result.append(words[i])
+            i += 1
     return result
 
 
 def type_text(words):
     """Type words at current cursor position"""
-    global has_typed_anything
+    global has_typed_anything, capitalize_next
 
     if not words:
         return
@@ -95,18 +106,32 @@ def type_text(words):
 
     for word in processed:
         is_punctuation = word in ".,?!:;"
+        is_sentence_end = word in ".?!"
 
         if is_punctuation:
             # Punctuation: no space before, space after
             kb_controller.type(word + " ")
             has_typed_anything = False  # Next word shouldn't have leading space
-        elif has_typed_anything:
-            # Regular word: space before
-            kb_controller.type(" " + word)
+            if is_sentence_end:
+                capitalize_next = True
         else:
-            # First word (or after punctuation): no space before
-            kb_controller.type(word)
-            has_typed_anything = True
+            # Capitalize "I" pronoun
+            if word.lower() == "i":
+                word = "I"
+            # Capitalize first letter if needed
+            elif capitalize_next and word:
+                word = word[0].upper() + word[1:]
+
+            if capitalize_next:
+                capitalize_next = False
+
+            if has_typed_anything:
+                # Regular word: space before
+                kb_controller.type(" " + word)
+            else:
+                # First word (or after punctuation): no space before
+                kb_controller.type(word)
+                has_typed_anything = True
 
 
 def stream_transcribe():
@@ -186,13 +211,14 @@ def stream_transcribe():
 
 def on_key_press(key):
     """Handle key press events"""
-    global is_recording, recording_thread, has_typed_anything
+    global is_recording, recording_thread, has_typed_anything, capitalize_next
 
     if key == TRIGGER_KEY:
         with lock:
             if not is_recording:
                 is_recording = True
                 has_typed_anything = False
+                capitalize_next = True  # Start new recording with capitalization
                 stop_recording_event.clear()
                 recording_thread = threading.Thread(target=stream_transcribe, daemon=True)
                 recording_thread.start()

@@ -5,6 +5,7 @@ include $M/init.mk
 include $M/python.mk
 include $M/clean.mk
 include $M/shell.mk
+include $M/agents.mk
 
 MODEL := $(shell grep ^default_model: config.yaml | cut -f2 -d' ')
 
