@@ -442,7 +442,7 @@ Examples:
   %(prog)s --engine whisper --key ctrl_l --mode realtime
   %(prog)s --engine whisper --key alt_r --model medium.en
 
-Available keys: """ + ", ".join(sorted(set(KEY_MAP.keys()))) + """
+Available keys: """ + ", ".join(sorted(k for k in KEY_MAP.keys() if not k.startswith('ctl_'))) + """
 
 Key combinations: Use '-' to combine keys (e.g., shift_l-ctrl_l, shift_l-alt_r)
 """
