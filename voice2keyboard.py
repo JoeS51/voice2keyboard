@@ -33,12 +33,8 @@ except ImportError:
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 CONFIG_FILE = os.path.join(SCRIPT_DIR, "config.yaml")
 
-# Load config early to get default engine
-with open(CONFIG_FILE) as f:
-    _temp_config = yaml.safe_load(f)
-    ENGINE = _temp_config.get("engine", "vosk")
-
 SAMPLE_RATE = 16000
+ENGINE = None  # Set via command-line argument
 
 # Key name mapping
 KEY_MAP = {
@@ -46,6 +42,8 @@ KEY_MAP = {
     "alt_r": Key.alt_r,
     "ctrl_l": Key.ctrl_l,
     "ctrl_r": Key.ctrl_r,
+    "ctl_l": Key.ctrl_l,  # Alias for ctrl_l
+    "ctl_r": Key.ctrl_r,  # Alias for ctrl_r
     "shift_l": Key.shift_l,
     "shift_r": Key.shift_r,
     "scroll_lock": Key.scroll_lock,
@@ -71,20 +69,8 @@ def load_config():
 
 
 config = load_config()
-trigger_key_name = config.get("key", "alt_r")
-
-# Parse trigger key - support combinations like "shift-ctrl" or single keys like "alt_r"
-if "-" in trigger_key_name:
-    # Key combination
-    key_parts = [k.strip() for k in trigger_key_name.split("-")]
-    TRIGGER_KEYS = set(KEY_MAP.get(k, KEY_MAP.get(k.lower())) for k in key_parts)
-else:
-    # Single key
-    TRIGGER_KEYS = {KEY_MAP.get(trigger_key_name, Key.alt_r)}
-
-MODEL_NAME = config.get("model", "vosk-model-small-en-us-0.15")
-# Normalize voice command keys to lowercase for case-insensitive matching
-VOICE_COMMANDS = {k.lower(): v for k, v in config.get("commands", {}).items()}
+# Normalize voice translation keys to lowercase for case-insensitive matching
+VOICE_TRANSLATIONS = {k.lower(): v for k, v in config.get("translations", {}).items()}
 TYPING_MODE = config.get("mode", "buffered")  # buffered or realtime
 PAUSE_DELAY = config.get("pause", 0.3)
 
@@ -170,8 +156,8 @@ def resolve_model_name(pattern, engine):
         return pattern
 
 
-def process_voice_commands(words):
-    """Convert voice command words to punctuation and symbols"""
+def process_voice_translations(words):
+    """Convert voice translation words to punctuation and symbols"""
     result = []
     i = 0
     while i < len(words):
@@ -180,24 +166,24 @@ def process_voice_commands(words):
         for length in [2, 1]:
             if i + length <= len(words):
                 phrase = " ".join(words[i:i+length]).lower()
-                if phrase in VOICE_COMMANDS:
-                    command_output = VOICE_COMMANDS[phrase]
+                if phrase in VOICE_TRANSLATIONS:
+                    translation_output = VOICE_TRANSLATIONS[phrase]
                     next_idx = i + length
 
-                    # If command produces punctuation and next token is any punctuation
-                    if command_output in ".,?!:;" and next_idx < len(words) and words[next_idx] in ".,?!:;":
-                        # Whisper added punctuation (might be different), skip it and use command output
-                        if not (result and result[-1] == command_output):
-                            result.append(command_output)
-                        i = next_idx + 1  # Skip both command word and Whisper's punctuation
-                    elif next_idx < len(words) and words[next_idx] == command_output:
-                        # Whisper added the exact same punctuation, skip command word
+                    # If translation produces punctuation and next token is any punctuation
+                    if translation_output in ".,?!:;" and next_idx < len(words) and words[next_idx] in ".,?!:;":
+                        # Whisper added punctuation (might be different), skip it and use translation output
+                        if not (result and result[-1] == translation_output):
+                            result.append(translation_output)
+                        i = next_idx + 1  # Skip both translation word and Whisper's punctuation
+                    elif next_idx < len(words) and words[next_idx] == translation_output:
+                        # Whisper added the exact same punctuation, skip translation word
                         # Next iteration will pick up the punctuation from Whisper
                         i += length
                     else:
-                        # No following punctuation, add command output
-                        if not (command_output in ".,?!:;" and result and result[-1] == command_output):
-                            result.append(command_output)
+                        # No following punctuation, add translation output
+                        if not (translation_output in ".,?!:;" and result and result[-1] == translation_output):
+                            result.append(translation_output)
                         i += length
                     matched = True
                     break
@@ -218,7 +204,7 @@ def type_text(words):
     if not words:
         return
 
-    processed = process_voice_commands(words)
+    processed = process_voice_translations(words)
 
     for word in processed:
         is_punctuation = word in ".,?!:;"
@@ -375,7 +361,7 @@ def stream_transcribe_whisper():
                     if text.endswith("..."):
                         text = text[:-3]  # Remove trailing ellipsis
 
-                    # Split words and separate punctuation for voice command matching
+                    # Split words and separate punctuation for voice translation matching
                     tokens = []
                     for word in text.split():
                         # Separate trailing punctuation from word
@@ -483,20 +469,37 @@ Key combinations: Use '-' to combine keys (e.g., shift_l-ctrl_l, shift_l-alt_r)
     if args.model:
         model_name = resolve_model_name(args.model, engine)
     else:
-        # Use engine-specific default if config has wrong engine's model
-        if engine == "whisper" and (not MODEL_NAME or MODEL_NAME.startswith("vosk-")):
-            model_name = "small.en"  # Default Whisper model
-        elif engine == "vosk" and MODEL_NAME and not MODEL_NAME.startswith("vosk-"):
-            model_name = "vosk-model-small-en-us-0.15"  # Default Vosk model
-        else:
-            model_name = MODEL_NAME
+        # Get model from config based on engine
+        config_key = f"{engine}-model"
+        model_name = config.get(config_key)
+        if not model_name:
+            print(f"Error: No model specified for {engine} engine")
+            print(f"Either set '{config_key}' in config.yaml or use --model on command line")
+            return 1
+        model_name = resolve_model_name(model_name, engine)
 
     # Parse trigger key - support combinations like "shift-ctrl_r"
     if "-" in args.key:
         key_parts = [k.strip() for k in args.key.split("-")]
-        TRIGGER_KEYS = set(KEY_MAP.get(k, KEY_MAP.get(k.lower())) for k in key_parts)
+        TRIGGER_KEYS = set()
+        for k in key_parts:
+            key_obj = KEY_MAP.get(k, KEY_MAP.get(k.lower()))
+            if key_obj is None:
+                # Show documented keys only (exclude ctl_ aliases)
+                valid_keys = sorted(k for k in KEY_MAP.keys() if not k.startswith('ctl_'))
+                print(f"Error: Invalid key name '{k}'")
+                print(f"Valid keys: {', '.join(valid_keys)}")
+                return 1
+            TRIGGER_KEYS.add(key_obj)
     else:
-        TRIGGER_KEYS = {KEY_MAP.get(args.key, KEY_MAP.get(args.key.lower()))}
+        key_obj = KEY_MAP.get(args.key, KEY_MAP.get(args.key.lower()))
+        if key_obj is None:
+            # Show documented keys only (exclude ctl_ aliases)
+            valid_keys = sorted(k for k in KEY_MAP.keys() if not k.startswith('ctl_'))
+            print(f"Error: Invalid key name '{args.key}'")
+            print(f"Valid keys: {', '.join(valid_keys)}")
+            return 1
+        TRIGGER_KEYS = {key_obj}
     if args.typing_mode:
         TYPING_MODE = args.typing_mode
     if args.pause is not None:

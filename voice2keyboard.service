@@ -4,7 +4,7 @@ After=graphical-session.target
 
 [Service]
 Type=simple
-ExecStart=%h/src/voice2keyboard/.cache/.local/python-venv/bin/python %h/src/voice2keyboard/voice2keyboard.py
+ExecStart=%h/src/voice2keyboard/.cache/.local/python-venv/bin/python %h/src/voice2keyboard/voice2keyboard.py --engine=whisper --key=alt_r
 Restart=on-failure
 RestartSec=5
 

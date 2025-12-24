@@ -10,13 +10,10 @@ include $M/clean.mk
 include $M/shell.mk
 include $M/agents.mk
 
-CONFIG_ENGINE := $(shell grep ^engine: config.yaml | cut -f2 -d' ' | tr -d ' ')
-CONFIG_ENGINE ?= vosk
+VOSK_MODEL := $(shell grep ^vosk-model: config.yaml | cut -f2 -d' ' | tr -d ' ')
+VOSK_MODEL ?= vosk-model-small-en-us-0.15
 
-MODEL := $(shell grep ^model: config.yaml | cut -f2 -d' ')
-MODEL ?= vosk-model-small-en-us-0.15
-
-# Default Whisper model if not specified
+WHISPER_MODEL := $(shell grep ^whisper-model: config.yaml | cut -f2 -d' ' | tr -d ' ')
 WHISPER_MODEL ?= small.en
 
 VOSK-URL := https://alphacephei.com/vosk/models
@@ -31,12 +28,8 @@ DEPS := \
   $(PYTHON) \
   $(PYTHON-VENV)/bin/pynput \
 
-# Additional dependencies based on engine (for install target)
-ifeq ($(CONFIG_ENGINE),whisper)
-  INSTALL_DEPS := $(DEPS) $(PYTHON-VENV)/bin/faster_whisper .whisper-model-downloaded
-else
-  INSTALL_DEPS := $(DEPS) $(MODEL)
-endif
+# Install target uses whisper (as set in service file)
+INSTALL_DEPS := $(DEPS) $(PYTHON-VENV)/bin/faster_whisper .whisper-model-downloaded
 
 SERVICE-FILE := $(HOME)/.config/systemd/user/voice2keyboard.service
 
@@ -81,7 +74,7 @@ ifeq ($(key),)
 	@exit 1
 endif
 ifeq ($(engine),vosk)
-	@$(MAKE) -s $(MODEL)
+	@$(MAKE) -s $(VOSK_MODEL)
 endif
 ifeq ($(engine),whisper)
 	@$(MAKE) -s $(PYTHON-VENV)/bin/faster_whisper .whisper-model-downloaded
@@ -96,7 +89,7 @@ install: $(INSTALL_DEPS) $(SERVICE-FILE)
 	systemctl --user enable voice2keyboard
 	systemctl --user start voice2keyboard
 	@echo "voice2keyboard installed and running"
-	@echo "Hold Delete key to record and type"
+	@echo "Hold Alt_R to record and type (using Whisper engine)"
 
 $(SERVICE-FILE): voice2keyboard.service
 	mkdir -p $(dir $@)
@@ -116,18 +109,18 @@ logs:
 	journalctl --user -u voice2keyboard -f
 
 $(PYTHON-VENV)/bin/pynput: $(PYTHON-VENV)
-	pip install -q pynput pyyaml vosk
+	pip install -q --disable-pip-version-check pynput pyyaml vosk
 
 $(PYTHON-VENV)/bin/faster_whisper: $(PYTHON-VENV)
-	pip install -q faster-whisper numpy
+	pip install -q --disable-pip-version-check faster-whisper numpy
 
 .whisper-model-downloaded: $(PYTHON-VENV)/bin/faster_whisper
 	python -c "from faster_whisper import WhisperModel; WhisperModel('$(if $(model),$(model),$(WHISPER_MODEL))')"
 	touch $@
 
-$(MODEL): $(MODEL).zip
+$(VOSK_MODEL): $(VOSK_MODEL).zip
 	unzip $<
 	touch $@
 
-$(MODEL).zip:
+$(VOSK_MODEL).zip:
 	wget $(VOSK-URL)/$@

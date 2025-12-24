@@ -1,19 +1,10 @@
 # voice2keyboard configuration
 
-# Trigger key to hold for recording
-# Single keys: alt_l, alt_r, ctrl_l, ctrl_r, shift_l, shift_r, scroll_lock, pause, insert, delete
-# Combinations: shift_l-ctrl_l, shift_l-ctrl_r, etc.
-key: alt_r
-
-# Speech recognition engine: vosk or whisper
-engine: vosk
-# engine: whisper
-
-# Model name (depends on engine)
-# Vosk: vosk-model-small-en-us-0.15, vosk-model-en-us-0.22-lgraph
-# Whisper: tiny.en, base.en, small.en, medium.en (small.en is default - good speed/accuracy)
-model: vosk-model-small-en-us-0.15
-# model: small.en
+# Model names (or use --model on command line to override)
+# Vosk models: vosk-model-small-en-us-0.15, vosk-model-en-us-0.22-lgraph
+# Whisper models: tiny.en, base.en, small.en, medium.en
+vosk-model: vosk-model-small-en-us-0.15
+whisper-model: small.en
 
 # Typing mode: how text is output
 # - buffered: Wait for natural pauses before typing (more accurate, recommended)
@@ -25,40 +16,39 @@ mode: buffered
 # Set to 0 to disable. Only applies in buffered mode.
 pause: 0.3
 
-# Voice commands for punctuation and formatting
+# Voice translations for punctuation and formatting
 # Say the word on the left, get the symbol on the right
-commands:
-  full stop: '.'
-  full step: '.'
-  for stop: '.'
-  for step: '.'
-  falstaff: '.'
-  tadpole: ','
-  karma: ','
-  see ally: 'CLI'
+translations:
   i'm: "I'm"
   i've: "I've"
+  see ally: 'CLI'
+
+  zero mark: '0'
+  one mark: '1'
+  two mark: '2'
+  three mark: '3'
+  four mark: '4'
+  five mark: '5'
+  six mark: '6'
+  seven mark: '7'
+  eight mark: '8'
+  nine mark: '9'
+
+  period mark: '.'
   question mark: '?'
   exclamation mark: '!'
   explanation mark: '!'
-  colon: ':'
-  semicolon: ';'
-  hyphen: '-'
-  dash: '-'
-  tick mark: "'"
-  quote mark: '"'
-  open parenthesis: '('
-  close parentheses: ')'
-  return return: "\n"
-  new paragraph: "\n\n"
-  # Numbers
-  digit zero: '0'
-  digit one: '1'
-  digit two: '2'
-  digit three: '3'
-  digit four: '4'
-  digit five: '5'
-  digit six: '6'
-  digit seven: '7'
-  digit eight: '8'
-  digit nine: '9'
+  comma mark: ','
+  karma mark: ','
+  dash mark: '-'
+  hyphen mark: '-'
+  colon mark: ':'
+  semicolon mark: ';'
+
+  double quote mark: '"'
+  single quote mark: "'"
+  open mark: '('
+  close mark: ')'
+
+  paragraph mark: "\n\n"
+  return mark: "\n"
