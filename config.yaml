@@ -47,13 +47,12 @@ pause: 0.3
 # When Whisper is given silence or very short audio, it sometimes generates these
 # Add your own if they happen and consider filing an issue with this repo
 hallucinations:
+- Oh
 - You
-- Okay. Okay. Okay. Okay. Okay. Okay. Okay. Okay. Okay. Okay. Okay. Okay. Okay.
-  Okay. Okay. Okay. Okay. Okay. Okay. Okay. Okay. Okay. Okay. Okay. Okay. Okay.
-  Okay. Okay.
-- Okay. Okay. Okay. Okay. Okay. Okay. Okay. Okay. Okay. Okay. Okay. Okay. Okay.
-  Okay. Okay. Okay. Okay. Okay. Okay. Okay. Okay. Okay. Okay. Okay. Okay. Okay.
-  Okay. Okay. Okay.
+- Huh
+- . . .
+- Okay. Okay. Okay*
+- a little bit of a little bit of a little bit of a little bit*
 
 # Voice translations for punctuation and formatting (Vosk only)
 # Say the word on the left, get the symbol on the right

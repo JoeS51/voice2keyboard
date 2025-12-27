@@ -79,8 +79,17 @@ config = load_config()
 VOICE_TRANSLATIONS = {k.lower(): v for k, v in config.get("vosk-translations", {}).items()}
 TYPING_MODE = config.get("mode", "buffered")  # buffered or realtime
 PAUSE_DELAY = config.get("pause", 0.3)
-# Normalize hallucinations by stripping trailing spaces/periods
-HALLUCINATIONS = [h.rstrip(' .') for h in config.get("hallucinations", [])]
+# Parse hallucinations into exact and substring match lists
+_raw_hallucinations = config.get("hallucinations", [])
+HALLUCINATIONS_EXACT = []
+HALLUCINATIONS_SUBSTRING = []
+for h in _raw_hallucinations:
+    if h.endswith('*'):
+        # Substring match - remove asterisk, lowercase
+        HALLUCINATIONS_SUBSTRING.append(h[:-1].lower())
+    else:
+        # Exact match - strip trailing space/period, lowercase
+        HALLUCINATIONS_EXACT.append(h.rstrip(' .').lower())
 
 # Global state
 ENGINE = None  # Current speech engine (vosk or whisper)
@@ -103,6 +112,32 @@ def log(message):
     """Write message to log file if logging is enabled"""
     if log_file:
         print(message, file=log_file, flush=True)
+
+
+def is_hallucination_text(text):
+    """Check if text matches any known hallucination pattern.
+
+    - Exact matches: text must match after stripping trailing space/period
+    - Substring matches (entries with *): phrase must appear anywhere in text
+    - All matching is case insensitive
+    """
+    normalized = text.rstrip(' .').lower()
+
+    # Hardcoded: ignore lone periods (possibly with trailing space)
+    if not normalized:
+        return True
+
+    # Check exact matches
+    if normalized in HALLUCINATIONS_EXACT:
+        return True
+
+    # Check substring matches
+    text_lower = text.lower()
+    for phrase in HALLUCINATIONS_SUBSTRING:
+        if phrase in text_lower:
+            return True
+
+    return False
 
 
 def check_dependencies():
@@ -429,7 +464,7 @@ def stream_transcribe_whisper():
                     after_tokenize = time.perf_counter()
 
                     # Check for hallucination - skip typing but still log
-                    is_hallucination = text.rstrip(' .') in HALLUCINATIONS
+                    is_hallucination = is_hallucination_text(text)
 
                     if tokens:
                         typing_start = time.perf_counter()
