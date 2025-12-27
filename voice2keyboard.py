@@ -32,7 +32,7 @@ except ImportError:
     WHISPER_AVAILABLE = False
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-CONFIG_FILE = os.path.join(SCRIPT_DIR, "config.yaml")
+DEFAULT_CONFIG_FILE = os.path.join(SCRIPT_DIR, "config.yaml")
 
 SAMPLE_RATE = 16000
 ENGINE = None  # Set via command-line argument
@@ -68,28 +68,46 @@ WHISPER_MODELS = [
 ]
 
 
-def load_config():
+def load_config(config_file):
     """Load configuration from YAML file"""
-    with open(CONFIG_FILE) as f:
+    with open(config_file) as f:
         return yaml.safe_load(f)
 
 
-config = load_config()
-# Normalize voice translation keys to lowercase for case-insensitive matching
-VOICE_TRANSLATIONS = {k.lower(): v for k, v in config.get("vosk-translations", {}).items()}
-TYPING_MODE = config.get("mode", "buffered")  # buffered or realtime
-PAUSE_DELAY = config.get("pause", 0.3)
-# Parse hallucinations into exact and substring match lists
-_raw_hallucinations = config.get("hallucinations", [])
+def init_config(config_path):
+    """Initialize config and config-dependent globals from given path"""
+    global config, VOICE_TRANSLATIONS, TYPING_MODE, PAUSE_DELAY
+    global HALLUCINATIONS_EXACT, HALLUCINATIONS_SUBSTRING
+
+    config = load_config(config_path)
+
+    # Normalize voice translation keys to lowercase for case-insensitive matching
+    VOICE_TRANSLATIONS = {k.lower(): v for k, v in config.get("vosk-translations", {}).items()}
+    TYPING_MODE = config.get("mode", "buffered")  # buffered or realtime
+    PAUSE_DELAY = config.get("pause", 0.3)
+
+    # Parse hallucinations into exact and substring match lists
+    _raw_hallucinations = config.get("hallucinations", [])
+    HALLUCINATIONS_EXACT = []
+    HALLUCINATIONS_SUBSTRING = []
+    for h in _raw_hallucinations:
+        if h.endswith('*'):
+            # Substring match - remove asterisk, lowercase
+            HALLUCINATIONS_SUBSTRING.append(h[:-1].lower())
+        else:
+            # Exact match - strip trailing space/period, lowercase
+            HALLUCINATIONS_EXACT.append(h.rstrip(' .').lower())
+
+    return config
+
+
+# Config-dependent globals (initialized in main after --config is parsed)
+config = None
+VOICE_TRANSLATIONS = {}
+TYPING_MODE = "buffered"
+PAUSE_DELAY = 0.3
 HALLUCINATIONS_EXACT = []
 HALLUCINATIONS_SUBSTRING = []
-for h in _raw_hallucinations:
-    if h.endswith('*'):
-        # Substring match - remove asterisk, lowercase
-        HALLUCINATIONS_SUBSTRING.append(h[:-1].lower())
-    else:
-        # Exact match - strip trailing space/period, lowercase
-        HALLUCINATIONS_EXACT.append(h.rstrip(' .').lower())
 
 # Global state
 ENGINE = None  # Current speech engine (vosk or whisper)
@@ -572,7 +590,7 @@ def main():
     # Parse command-line arguments
     parser = argparse.ArgumentParser(
         prog="voice2keyboard.py",
-        usage="%(prog)s --key KEY [--log LOG] [--model MODEL]",
+        usage="%(prog)s --key KEY [--log LOG] [--config FILE] [--model MODEL]",
         description="Voice-to-keyboard: Hold a key to record, text appears as you speak",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
@@ -594,6 +612,8 @@ Select a model and other options in config.yaml or use --model=... etc.
                         help="Trigger key or combination (e.g., 'alt_r', 'shift_l-ctrl_r') (required)")
     parser.add_argument("--log",
                         help="Log file path (default: no logging). Use /dev/stdout for console output")
+    parser.add_argument("--config", metavar="FILE",
+                        help="Config file path (default: config.yaml in script directory)")
 
     parser.add_argument("--model",
                         help="Model name (default: from config, engine auto-inferred)")
@@ -603,6 +623,10 @@ Select a model and other options in config.yaml or use --model=... etc.
                         help="Pause delay in seconds for buffered mode (default: from config)")
 
     args = parser.parse_args()
+
+    # Load config (before anything that needs it)
+    config_path = args.config if args.config else DEFAULT_CONFIG_FILE
+    init_config(config_path)
 
     # Set up logging
     global log_file

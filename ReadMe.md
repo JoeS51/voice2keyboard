@@ -139,6 +139,9 @@ You can also set any of the config options from command line arguments.
 **Note:** The trigger key is specified via a CLI argument, not in the config.
 The trigger key is the only mandatory command line option.
 
+You can specify an alternate config file using the `--config` option, which is
+useful when running as a service with different configurations.
+
 ```yaml
 # Model selection:
 # - Whisper models: tiny, tiny.en, base, base.en, small, small.en, medium.en, etc.
@@ -211,6 +214,9 @@ make run key=shift_l-alt_r model=vosk-model-small-en-us-0.15 mode=realtime pause
 ```bash
 # Basic usage (key required, uses model from config)
 python voice2keyboard.py --key alt_r
+
+# With custom config file
+python voice2keyboard.py --key alt_r --config /path/to/custom-config.yaml
 
 # With Vosk model
 python voice2keyboard.py --key shift_l-alt_r --model vosk-model-small-en-us-0.15
